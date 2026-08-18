@@ -1,0 +1,30 @@
+.DS_Store
+
+# Xcode user state
+*.xcuserstate
+*.xcuserdata/
+*.xcuserdatad/
+*.pbxuser
+*.xccheckout
+
+# Build products
+build/
+DerivedData/
+*.app
+*.dSYM
+*.xcarchive
+*.xcresult
+
+# Swift Package Manager
+.build/
+.swiftpm/
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.log
+*.tmp

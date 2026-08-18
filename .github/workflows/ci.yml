@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-26
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate publication files
+        run: |
+          plutil -lint Otemanu/Info.plist Otemanu.xcodeproj/project.pbxproj
+          jq -e '
+            (.cells | type == "array") and
+            (.cells | all(
+              if .cell_type == "code"
+              then (.outputs == [] and .execution_count == null)
+              else true
+              end
+            ))
+          ' jupyter_test_otemanu.ipynb
+
+      - name: Lint Swift sources
+        run: xcrun swift-format lint --strict --recursive Otemanu OtemanuTests
+
+      - name: Test with strict concurrency
+        run: |
+          xcodebuild test \
+            -project Otemanu.xcodeproj \
+            -scheme Otemanu \
+            -configuration Debug \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO \
+            SWIFT_VERSION=6 \
+            SWIFT_STRICT_CONCURRENCY=complete
+
+      - name: Analyze
+        run: |
+          xcodebuild analyze \
+            -project Otemanu.xcodeproj \
+            -scheme Otemanu \
+            -configuration Debug \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Build release
+        run: |
+          xcodebuild build \
+            -project Otemanu.xcodeproj \
+            -scheme Otemanu \
+            -configuration Release \
+            -destination "platform=macOS" \
+            CODE_SIGNING_ALLOWED=NO

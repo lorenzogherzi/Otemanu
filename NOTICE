@@ -1,0 +1,13 @@
+Otemanu - NOTICE
+
+Otemanu is free software distributed under the GNU General Public License,
+version 3 or (at your option) any later version. See LICENSE for the complete
+license text.
+
+Otemanu contains software based on the boring.notch project, developed by
+TheBoredTeam and distributed under the GNU General Public License version 3:
+https://github.com/TheBoredTeam/boring.notch
+
+The Otemanu modifications began on 2026-08-18. The product identity, target,
+bundle identifiers, settings interface, runtime services, and feature set were
+changed for Otemanu.
