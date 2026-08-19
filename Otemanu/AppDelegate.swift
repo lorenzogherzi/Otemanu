@@ -57,7 +57,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
         let viewModel = IslandViewModel(screen: screen)
         viewModel.onCompletionNoticeDismissed = {
-            JupyterMonitor.shared.discardCompletedExecution()
+            JupyterMonitor.shared.discardFinishedExecution()
         }
         self.viewModel = viewModel
 

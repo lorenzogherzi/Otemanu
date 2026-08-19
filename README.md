@@ -1,5 +1,9 @@
 # Otemanu
 
+<p align="center">
+  <img src="assets/otemanu_app_icon.png" width="160" alt="Otemanu app icon">
+</p>
+
 > [!WARNING]
 > **Otemanu is currently in active testing.** Features, behavior, compatibility,
 > and the interface may change without notice. This repository is published as
@@ -16,6 +20,13 @@ shows the completed cell snapshot until the island closes or a new cell starts,
 then returns to the connected/idle state. Monitoring happens locally through
 Jupyter runtime files, its REST API, and the kernel WebSocket channels.
 
+When no local Jupyter server is available, the island reports it and prompts
+you to start Jupyter Notebook or JupyterLab.
+
+<p align="center">
+  <img src="assets/01_not_running.png" alt="Otemanu waiting for Jupyter to start">
+</p>
+
 ## What the island shows
 
 While a cell is running, Otemanu can display:
@@ -30,6 +41,10 @@ While a cell is running, Otemanu can display:
 
 When no cell is running, the island returns to the Jupyter connection state and
 reports that the kernel is idle.
+
+<p align="center">
+  <img src="assets/02_session_active.png" alt="Otemanu connected to an idle Jupyter kernel">
+</p>
 
 ## Execution lifecycle
 
@@ -46,13 +61,33 @@ During execution:
 3. Progress messages and kernel resource metrics update in real time.
 4. The island cannot close accidentally while execution is active.
 
+<p align="center">
+  <img src="assets/03_cell_running.png" alt="Otemanu monitoring a running cell">
+</p>
+
 If a long-running cell no longer needs the full interface, click the open
 island once. It shrinks to menu-bar height and remains wider than its normal
 closed state, showing only the orange `busy` indicator and elapsed time. Click
 the compact indicator again to restore the complete view.
 
+<p align="center">
+  <img src="assets/06_busy_minimized.png" alt="Otemanu minimized while a cell is running">
+</p>
+
 When the cell finishes, Otemanu shows `Cell complete` together with the name and
 details of that cell for as long as the completion notification remains active.
+
+<p align="center">
+  <img src="assets/04_cell_complete.png" alt="Otemanu showing a completed cell">
+</p>
+
+If execution fails, the island instead keeps `Cell failed`, the exception name,
+message, and traceback snapshot visible for the same notification lifetime.
+
+<p align="center">
+  <img src="assets/05_cell_error.png" alt="Otemanu showing a failed cell">
+</p>
+
 The island opens for this notification even when execution started in compact
 mode. The snapshot is removed when the island closes or a new cell starts; the
 island then reports `Jupyter session active` and `kernel idle`. No completed
