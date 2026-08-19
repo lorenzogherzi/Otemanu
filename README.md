@@ -53,6 +53,8 @@ the compact indicator again to restore the complete view.
 
 When the cell finishes, Otemanu shows `Cell complete` together with the name and
 details of that cell for as long as the completion notification remains active.
+If execution fails, the island instead keeps `Cell failed`, the exception name,
+message, and traceback snapshot visible for the same notification lifetime.
 The island opens for this notification even when execution started in compact
 mode. The snapshot is removed when the island closes or a new cell starts; the
 island then reports `Jupyter session active` and `kernel idle`. No completed

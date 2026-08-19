@@ -78,7 +78,7 @@ final class JupyterMonitor: ObservableObject {
     }
 
     private func refreshKernelMetrics() async {
-        if currentExecution?.phase == .completed {
+        if currentExecution?.finishedAt != nil {
             return
         }
 
@@ -201,9 +201,18 @@ final class JupyterMonitor: ObservableObject {
 
         case "error":
             guard let messageID, var execution = executions[messageID] else { return }
-            let name = message.content["ename"] as? String ?? "Error"
-            let value = message.content["evalue"] as? String ?? ""
-            execution.phase = .failed(value.isEmpty ? name : "\(name): \(value)")
+            let name = sanitizedTerminalText(message.content["ename"] as? String ?? "Error")
+            let value = sanitizedTerminalText(message.content["evalue"] as? String ?? "")
+            let traceback = (message.content["traceback"] as? [String] ?? [])
+                .map(sanitizedTerminalText)
+                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            execution.phase = .failed(
+                JupyterExecutionSnapshot.Failure(
+                    name: name,
+                    value: value,
+                    traceback: traceback
+                )
+            )
             executions[messageID] = execution
             publishIfCurrent(execution)
 
@@ -240,7 +249,7 @@ final class JupyterMonitor: ObservableObject {
         executionCount: Int?,
         code: String
     ) {
-        discardCompletedExecution()
+        discardFinishedExecution()
 
         let summary =
             code
@@ -277,7 +286,9 @@ final class JupyterMonitor: ObservableObject {
         guard var execution = executions.removeValue(forKey: key) else { return }
 
         pendingBusyStart.removeValue(forKey: key)
-        execution.phase = .completed
+        if case .running = execution.phase {
+            execution.phase = .completed
+        }
         execution.finishedAt = Date()
 
         if executions.isEmpty {
@@ -285,17 +296,17 @@ final class JupyterMonitor: ObservableObject {
         } else if currentExecution?.messageID == key {
             currentExecution = mostRecentActiveExecution()
         }
-        let retainsCompletedExecution =
+        let retainsFinishedExecution =
             currentExecution?.messageID == execution.messageID
-            && currentExecution?.phase == .completed
-        if !retainsCompletedExecution {
+            && currentExecution?.finishedAt != nil
+        if !retainsFinishedExecution {
             removeWidgets(for: execution.kernelID)
             if !executions.values.contains(where: { $0.kernelID == execution.kernelID }) {
                 discardResourceState(for: execution.kernelID)
             }
         }
         updateBusyKernelCount()
-        if !retainsCompletedExecution {
+        if !retainsFinishedExecution {
             refreshKernelMetricsNow()
         }
         NotificationCenter.default.post(name: .jupyterExecutionDidFinish, object: nil)
@@ -611,6 +622,16 @@ final class JupyterMonitor: ObservableObject {
         }
     }
 
+    private func sanitizedTerminalText(_ text: String) -> String {
+        text
+            .replacingOccurrences(
+                of: #"\u001B\[[0-?]*[ -/]*[@-~]"#,
+                with: "",
+                options: .regularExpression
+            )
+            .replacingOccurrences(of: "\r", with: "")
+    }
+
     private func publishIfCurrent(_ execution: JupyterExecutionSnapshot) {
         if currentExecution?.messageID == execution.messageID {
             currentExecution = execution
@@ -628,9 +649,9 @@ final class JupyterMonitor: ObservableObject {
         executions.count
     }
 
-    func discardCompletedExecution() {
+    func discardFinishedExecution() {
         guard let execution = currentExecution,
-            execution.phase == .completed
+            execution.finishedAt != nil
         else { return }
         currentExecution = nil
         removeWidgets(for: execution.kernelID)
@@ -671,17 +692,17 @@ final class JupyterMonitor: ObservableObject {
 
     private func removeState(for kernelID: String) {
         let removedActiveExecution = executions.values.contains { $0.kernelID == kernelID }
-        let preservesCompletedExecution =
+        let preservesFinishedExecution =
             currentExecution?.kernelID == kernelID
-            && currentExecution?.phase == .completed
+            && currentExecution?.finishedAt != nil
         executions = executions.filter { $0.value.kernelID != kernelID }
-        if !preservesCompletedExecution {
+        if !preservesFinishedExecution {
             removeWidgets(for: kernelID)
             discardResourceState(for: kernelID)
         }
         pendingBusyStart = pendingBusyStart.filter { !$0.key.hasPrefix("\(kernelID):") }
         if currentExecution?.kernelID == kernelID,
-            currentExecution?.phase != .completed
+            currentExecution?.finishedAt == nil
         {
             currentExecution = mostRecentActiveExecution()
         }
@@ -697,8 +718,8 @@ final class JupyterMonitor: ObservableObject {
 
     private func disconnectAll() {
         let hadActiveExecutions = !executions.isEmpty
-        let completedExecution =
-            currentExecution?.phase == .completed
+        let finishedExecution =
+            currentExecution?.finishedAt != nil
             ? currentExecution
             : nil
         for connection in connections.values {
@@ -708,9 +729,9 @@ final class JupyterMonitor: ObservableObject {
         sessionsByKernel.removeAll()
         executions.removeAll()
         pendingBusyStart.removeAll()
-        currentExecution = completedExecution
+        currentExecution = finishedExecution
         busyKernelCount = 0
-        if completedExecution == nil {
+        if finishedExecution == nil {
             widgets.removeAll()
             displayedKernelMetrics = nil
             Task { [resourceMonitor] in

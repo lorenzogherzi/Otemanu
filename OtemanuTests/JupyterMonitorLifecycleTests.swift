@@ -35,7 +35,7 @@ final class JupyterMonitorLifecycleTests: XCTestCase {
         XCTAssertEqual(monitor.currentExecution?.codeSummary, "long_running_work()")
         XCTAssertNotNil(monitor.currentExecution?.finishedAt)
 
-        monitor.discardCompletedExecution()
+        monitor.discardFinishedExecution()
 
         XCTAssertNil(monitor.currentExecution)
     }
@@ -69,7 +69,58 @@ final class JupyterMonitorLifecycleTests: XCTestCase {
         XCTAssertEqual(monitor.currentExecution?.kernelID, "kernel-b")
         XCTAssertEqual(monitor.currentExecution?.phase, .completed)
 
-        monitor.discardCompletedExecution()
+        monitor.discardFinishedExecution()
+
+        XCTAssertNil(monitor.currentExecution)
+    }
+
+    func testFailedExecutionRetainsErrorUntilNotificationDismissal() throws {
+        let monitor = JupyterMonitor(startAutomatically: false)
+
+        try startExecution(id: "cell-error", kernelID: "kernel-1", monitor: monitor)
+        monitor.handle(
+            try message(
+                type: "error",
+                parentID: "cell-error",
+                content: [
+                    "ename": "RuntimeError",
+                    "evalue": "Intentional Dynamic Island test error",
+                    "traceback": [
+                        "\u{001B}[31m---------------------------------------------------------------------------\u{001B}[39m",
+                        "Cell In[9], line 7",
+                        "\u{001B}[31mRuntimeError\u{001B}[39m: Intentional Dynamic Island test error",
+                    ],
+                ]
+            ),
+            kernelID: "kernel-1"
+        )
+
+        monitor.handle(
+            try message(type: "status", parentID: "cell-error", content: ["execution_state": "idle"]),
+            kernelID: "kernel-1"
+        )
+
+        XCTAssertEqual(monitor.activeExecutionCount, 0)
+        XCTAssertEqual(monitor.busyKernelCount, 0)
+        XCTAssertNotNil(monitor.currentExecution?.finishedAt)
+        guard let phase = monitor.currentExecution?.phase,
+            case .failed(let failure) = phase
+        else {
+            return XCTFail("The failed phase must remain visible after the kernel becomes idle")
+        }
+        XCTAssertEqual(failure.name, "RuntimeError")
+        XCTAssertEqual(failure.value, "Intentional Dynamic Island test error")
+        XCTAssertEqual(
+            failure.summary,
+            "RuntimeError: Intentional Dynamic Island test error"
+        )
+        XCTAssertEqual(
+            failure.traceback.last,
+            "RuntimeError: Intentional Dynamic Island test error"
+        )
+        XCTAssertFalse(failure.traceback.joined().contains("\u{001B}"))
+
+        monitor.discardFinishedExecution()
 
         XCTAssertNil(monitor.currentExecution)
     }

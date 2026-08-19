@@ -40,9 +40,19 @@ struct JupyterKernelMessage {
 }
 
 struct JupyterExecutionSnapshot: Equatable {
+    struct Failure: Equatable {
+        let name: String
+        let value: String
+        let traceback: [String]
+
+        var summary: String {
+            value.isEmpty ? name : "\(name): \(value)"
+        }
+    }
+
     enum Phase: Equatable {
         case running
-        case failed(String)
+        case failed(Failure)
         case completed
     }
 

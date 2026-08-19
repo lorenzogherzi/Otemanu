@@ -205,11 +205,19 @@ struct JupyterMonitorView: View {
     private func resultLabel(_ execution: JupyterExecutionSnapshot) -> some View {
         Group {
             switch execution.phase {
-            case .failed(let message):
-                Text(message)
-                    .foregroundStyle(.red)
-                    .lineLimit(1)
-                    .truncationMode(.tail)
+            case .failed(let failure):
+                VStack(spacing: 1) {
+                    Text("Cell failed")
+                        .font(.system(size: 10, weight: .semibold))
+
+                    Text(failure.summary)
+                        .font(.system(size: 8.5, design: .monospaced))
+                        .lineLimit(2)
+                        .truncationMode(.tail)
+                        .multilineTextAlignment(.center)
+                }
+                .foregroundStyle(.red)
+                .frame(maxWidth: .infinity, alignment: .center)
             case .completed:
                 Text("Cell complete")
                     .foregroundStyle(.green)
